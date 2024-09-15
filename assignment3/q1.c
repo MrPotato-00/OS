@@ -11,67 +11,64 @@
 #include<arpa/inet.h>
 #include<errno.h>
 #define ip "127.0.0.1"
-#define port 5600
+#define port 5650
 #define size 1024
 
 int fsize(){
 	struct stat st;
-	stat("file.txt", &st);
+	stat("sample.c", &st);
 	return st.st_size;
 }
 
-void compare_files(char*file1, char*file2){
+void compare_files(char*fp1, char*fp2){
 
-	FILE* firstfile= fopen(file1, "r");
-	FILE* secondfile= fopen(file2, "r");
+	FILE* file1= fopen(fp1, "r");
+	FILE* file2= fopen(fp2, "r");
 
-	if(firstfile==NULL || secondfile==NULL){
+	if(file1==NULL || file2==NULL){
 		perror("[-] Error in file...\n");
 		exit(1);
 	}
 
-    	char firstFileChar = getc(firstfile);
-    	char secondFileChar = getc(secondfile);
+    	char f1 = getc(file1);
+    	char f2 = getc(file2);
+	
+	int error=0, line=1;
+	while(f1!=EOF && f2!=EOF){
+		if(f1=='\n' && f2=='\n'){
+			line++;
+		}
+		if(f1!=f2){
+			printf("Mismatch in line %d", line);
+			fclose(file1);
+			fclose(file2);
+			return;
+		}
+		f1= getc(file1);
+		f2= getc(file2);
+	}
 
+	if(f1!=EOF || f2!=EOF)
+		printf("Mismatch...\n");
+	
+	else
+		printf("No mismatch...\n");
 
-    	int lineNumber = 1;
-    	int totalErrors = 0;
-
-    	while (firstFileChar != EOF && secondFileChar != EOF)
-    	{
-        	if (firstFileChar == '\n' && secondFileChar == '\n')
-        	{
-            	lineNumber++;
-        	}
-        	if (firstFileChar != secondFileChar)
-        	{
-            	totalErrors++;
-            	printf(">>> Mismatch occurred at line number : %d\n", lineNumber);
-            	exit(1);
-        	}
-
-        	firstFileChar = getc(firstfile);
-        	secondFileChar = getc(secondfile);
-    	}
-
-    	if (totalErrors == 0){
-        	printf(">>> Both the files are same, there is no mismatch!\n");
-    	}
-	fclose(firstfile);
-	fclose(secondfile);
+	fclose(file1);
+	fclose(file2);
 }
 
 void send_file(int sockfd, FILE*fp){
-	int n;
+	
   	char data[size];
-  	
 	int totalbytes= fsize();
+	printf("File size: %d\n",totalbytes); 
 	int bytes=0;
 	int byte_read;
 	while(bytes<totalbytes && (byte_read= fread(data, sizeof(char), size, fp))>0){
 		send(sockfd, data, byte_read, 0);
 		bytes+= byte_read;
-		//bzero(data, size);
+		bzero(data, size);
 	}
   	printf("[+]File send successfully...\n");
 }
@@ -81,21 +78,17 @@ void write_file(int sockfd, FILE*fr){
 	char revbuf[size];
 	int totalbytes= fsize();
 	int bytes=0;
-	
+	printf("File size: %d\n", totalbytes);
 	int byte_recv= 0;
 	while(bytes<totalbytes && (byte_recv = recv(sockfd, revbuf, size, 0))>0){
-		
-
 			
 		fwrite(revbuf, sizeof(char), byte_recv, fr);
 		bytes+= byte_recv;
 		
-			
-		
-		
+		bzero(revbuf, size);
 	}
 
-	printf("Ok file received!\n");
+	printf("[+]File received...\n");
 	    
 }
 
@@ -219,7 +212,7 @@ void  client(char* file1, char*file2){
 
 int main(){
  	
-	system("fallocate -l 1M file.txt");
+	//system("fallocate -l 1M file.txt");
 	
 	/*
 	char* file1= (char*)malloc(sizeof(char)*30);
@@ -235,15 +228,15 @@ int main(){
 	int pid= fork();
 
 	if(pid==0){ //child process
-		server("file1.txt"); // receive file1.txt and write to file2.txt
+		server("sample1.c"); // receive file1.txt and write to file2.txt
 
 		_Exit(0);
 	}
 	else{
-		client("file.txt","file2.txt");// send file1.txt
+		client("sample.c","sample2.c");// send file1.txt
 		
 
-		compare_files("file.txt", "file2.txt");
+		compare_files("sample.c", "sample2.c");
 		time_req= clock()- time_req;
 		printf(">>>Time taken to complete the process: %f seconds\n", (float)time_req/CLOCKS_PER_SEC);
 
